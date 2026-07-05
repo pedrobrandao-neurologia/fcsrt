@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Teste de Evocação Livre e com Pista (paradigma FCSRT) — voz</title>
+<style>
+  :root{
+    --bg:#F7F8FA;
+    --surface:#FFFFFF;
+    --ink:#1A2230;
+    --ink-soft:#5A6472;
+    --line:#D5DBE2;
+    --accent:#2C6E7F;
+    --accent-soft:#E4EFF1;
+    --ok:#2E7D5B;
+    --ok-soft:#EAF6F0;
+    --err:#B4443A;
+    --err-soft:#FBECEA;
+    --stim-ink:#0F1720;
+    --cue:#9A5B12;
+    --cue-soft:#FDF0E4;
+    --radius:14px;
+    --touch:74px;
+    --fs-base:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:var(--fs-base);line-height:1.5;-webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:720px;margin:0 auto;padding:24px;min-height:100%;display:flex;flex-direction:column}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+  h1{font-size:1.5rem;margin:0 0 4px;letter-spacing:-.01em}
+  h2{font-size:1.15rem;margin:0 0 14px}
+  p.lead{color:var(--ink-soft);margin:0 0 22px}
+  label{display:block;font-weight:600;font-size:.95rem;margin:16px 0 6px}
+  input[type=text],input[type=number],select{
+    width:100%;padding:14px;font-size:1.05rem;border:1px solid var(--line);
+    border-radius:10px;background:#fff;color:var(--ink);font-family:inherit;
+  }
+  input:focus,select:focus,button:focus-visible{outline:3px solid var(--accent-soft);outline-offset:1px;border-color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    min-height:56px;padding:14px 20px;font-size:1.1rem;font-weight:600;border:none;
+    border-radius:12px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;
+    transition:filter .12s,transform .04s;
+  }
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.secondary{background:#fff;color:var(--accent);border:1.5px solid var(--accent)}
+  .btn.ghost{background:transparent;color:var(--ink-soft);border:1.5px solid var(--line);min-height:48px;font-size:1rem}
+  .btn-row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap}
+  .muted{color:var(--ink-soft);font-size:.9rem}
+  details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  summary{cursor:pointer;font-weight:600;color:var(--ink-soft)}
+  .settings{margin-top:14px}
+
+  /* ---- Palco dinâmico ---- */
+  #stage{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;background:var(--surface);border-radius:var(--radius);border:1px solid var(--line);
+    min-height:64vh;padding:24px;position:relative}
+  .stim-word{font-size:clamp(2.4rem,9vw,3.6rem);font-weight:700;color:var(--stim-ink);letter-spacing:.02em;text-transform:uppercase}
+  .cue-label{margin-top:14px;font-size:1rem;letter-spacing:.14em;text-transform:uppercase;color:var(--cue);font-weight:700;background:var(--cue-soft);padding:6px 14px;border-radius:20px}
+  .fixation{font-size:4rem;color:var(--ink-soft);font-weight:300}
+  .progress{position:absolute;top:16px;right:20px;font-size:.85rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .timer-bar{position:absolute;left:0;bottom:0;height:5px;background:var(--accent);width:0%;border-radius:0 3px 0 0;transition:width .25s linear}
+
+  .phase-msg{max-width:540px}
+  .phase-msg .kicker{font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .phase-msg h2{font-size:1.5rem;margin:8px 0 12px}
+  .phase-msg p{color:var(--ink-soft);font-size:1.05rem}
+
+  /* ---- Prompt e pista ---- */
+  .cue-prompt{font-size:1rem;color:var(--ink-soft);margin-bottom:6px}
+  .cue-big{font-size:1.9rem;font-weight:700;color:var(--cue);text-transform:uppercase;letter-spacing:.03em;margin-bottom:22px}
+
+  /* ---- Tiles de identificação (2x2) ---- */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:520px;margin:0 auto}
+  .tile{min-height:var(--touch);padding:18px 12px;font-size:1.3rem;font-weight:600;border:2px solid var(--line);
+    border-radius:12px;background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;
+    display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;
+    text-transform:uppercase;transition:border-color .1s,background .1s;}
+  .tile:hover{border-color:var(--accent)}
+  .tile.flash-ok{border-color:var(--ok);background:var(--ok-soft)}
+  .tile.flash-err{border-color:var(--err);background:var(--err-soft)}
+  .tile.reveal{border-color:var(--accent);background:var(--accent-soft);animation:pulse 1s ease}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(44,110,127,0)}50%{box-shadow:0 0 0 6px rgba(44,110,127,.18)}}
+
+  /* ---- Caixa de voz ---- */
+  .recall-box{width:100%;max-width:520px;margin:0 auto}
+  .voice-box{width:100%;background:#fff;border:2px solid var(--line);border-radius:12px;padding:16px;transition:border-color .2s,background .2s}
+  .voice-box.matched{border-color:var(--ok);background:var(--ok-soft)}
+  .mic-row{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:12px;font-weight:600;color:var(--err)}
+  .voice-box.matched .mic-row{color:var(--ok)}
+  .mic-dot{width:14px;height:14px;border-radius:50%;background:var(--err);position:relative;flex-shrink:0}
+  .mic-dot::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--err);animation:micpulse 1.3s ease-out infinite}
+  .voice-box.matched .mic-dot,.voice-box.matched .mic-dot::before{background:var(--ok);animation:none}
+  @keyframes micpulse{0%{transform:scale(1);opacity:.65}100%{transform:scale(2.6);opacity:0}}
+  .transcript{min-height:64px;text-align:left;font-size:1.15rem;line-height:1.5;color:var(--ink);background:var(--bg);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto}
+  .transcript.empty{color:var(--ink-soft)}
+  .transcript .interim{color:var(--ink-soft);font-style:italic}
+  .transcript .placeholder{color:var(--ink-soft);font-style:italic;font-size:1rem}
+  .recall-row{display:flex;gap:10px;margin-top:4px}
+  .recall-row input{flex:1}
+  .recall-row .btn{width:auto;min-width:110px;min-height:52px}
+  .typed-fallback{margin-top:14px;border:none;padding-top:0}
+  .typed-fallback summary{font-size:.9rem;color:var(--accent);text-align:center;font-weight:600}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;justify-content:center;min-height:20px}
+  .chip{background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:7px 14px;font-size:1rem;font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+  .recall-count{margin-top:12px;font-size:.9rem;color:var(--ink-soft)}
+  .num-opt{font-size:1.7rem;font-variant-numeric:tabular-nums}
+
+  .mic-gate{display:none;margin-top:18px;background:var(--cue-soft);border-radius:12px;padding:16px;font-size:.95rem;color:#7a4a12;text-align:left}
+  .mic-gate p{margin:0 0 12px}
+
+  /* ---- Resultados ---- */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0}
+  .stat{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .stat .v{font-size:1.7rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:.82rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em}
+  .note{background:var(--accent-soft);border-radius:12px;padding:16px;font-size:.92rem;color:#22525E;margin:12px 0}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.95rem}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--ink-soft);font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tag{font-size:.75rem;padding:2px 8px;border-radius:20px;font-weight:600}
+  .tag.free{background:var(--ok-soft);color:var(--ok)}
+  .tag.cued{background:var(--cue-soft);color:var(--cue)}
+  .tag.none{background:var(--err-soft);color:var(--err)}
+  @media(max-width:560px){
+    .app{padding:14px}.card{padding:20px}
+    .tiles{grid-template-columns:1fr 1fr}
+    .stat-grid{grid-template-columns:1fr 1fr}
+    .recall-row{flex-direction:column}.recall-row .btn{width:100%}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ====================== TELA INICIAL ====================== -->
+  <section id="screen-start" class="card">
+    <h1>Evocação Livre e com Pista</h1>
+    <p class="lead">Paradigma derivado do FCSRT-IR (Grober–Buschke): codificação controlada por pista semântica &rarr; verificação de recordação imediata &rarr; intervalo preenchido de 2 minutos &rarr; evocação livre e evocação seletiva com pista. <strong>A evocação é feita por voz</strong> (reconhecimento de fala).</p>
+
+    <label for="patientId">Identificação do participante</label>
+    <input type="text" id="patientId" placeholder="ex.: PC-0031 (código, sem dados pessoais)" autocomplete="off">
+
+    <details class="settings">
+      <summary>Parâmetros do teste</summary>
+      <div class="grid2" style="margin-top:14px">
+        <div>
+          <label for="cfgItems">Nº de itens (8&ndash;16)</label>
+          <input type="number" id="cfgItems" min="8" max="16" step="4" value="16">
+        </div>
+        <div>
+          <label for="cfgPerCard">Itens por cartão</label>
+          <input type="number" id="cfgPerCard" min="2" max="4" value="4">
+        </div>
+        <div>
+          <label for="cfgConfirmMs">Confirmação de codificação (ms)</label>
+          <input type="number" id="cfgConfirmMs" min="600" max="2500" step="100" value="1100">
+        </div>
+        <div>
+          <label for="cfgRestudyMs">Reapresentação por item (ms)</label>
+          <input type="number" id="cfgRestudyMs" min="2000" max="8000" step="500" value="4000">
+        </div>
+        <div>
+          <label for="cfgInterf">Tarefa de interferência</label>
+          <select id="cfgInterf">
+            <option value="maiorNumero">Selecionar o maior número</option>
+            <option value="calculo">Cálculo aritmético simples</option>
+          </select>
+        </div>
+        <div>
+          <label for="cfgInterfDur">Interferência / intervalo (s)</label>
+          <input type="number" id="cfgInterfDur" min="30" max="180" step="10" value="120">
+        </div>
+      </div>
+      <p class="muted" style="margin-top:12px">O FCSRT padrão usa 16 itens em 16 categorias únicas. As respostas de evocação são captadas por voz; o pareamento tolera acentuação, plural e pequenas variações. Reconhecimento de voz disponível em Chrome/Edge (desktop e Android).</p>
+    </details>
+
+    <div class="btn-row">
+      <button class="btn" id="btnStart">Iniciar</button>
+    </div>
+    <div class="mic-gate" id="micGate"></div>
+    <p class="muted" style="margin-top:16px">Aplicação autoguiada. Todos os dados permanecem no dispositivo e são exportados em JSON/CSV ao final &mdash; nada é enviado a servidores.</p>
+  </section>
+
+  <!-- ====================== PALCO ====================== -->
+  <section id="stage"></section>
+
+  <!-- ====================== RESULTADOS ====================== -->
+  <section id="screen-results" class="card" style="display:none"></section>
+
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   BANCO DE ESTÍMULOS — paradigma FCSRT
+   16 itens, cada um de CATEGORIA SEMÂNTICA ÚNICA. A mesma categoria é a pista
+   de codificação e de recuperação (coordenação codificação<->recuperação).
+   Conjunto original (não reproduz a lista proprietária de Grober-Buschke);
+   substituível por itens normatizados para a população-alvo.
+   ========================================================================= */
+const FCSRT_ITEMS = [
+  { item:"UVA",        cue:"FRUTA" },
+  { item:"MARTELO",    cue:"FERRAMENTA" },
+  { item:"TARTARUGA",  cue:"RÉPTIL" },
+  { item:"VIOLINO",    cue:"INSTRUMENTO MUSICAL" },
+  { item:"GIRASSOL",   cue:"FLOR" },
+  { item:"CADEIRA",    cue:"MÓVEL" },
+  { item:"SARDINHA",   cue:"PEIXE" },
+  { item:"ENFERMEIRO", cue:"PROFISSÃO" },
+  { item:"TÊNIS",      cue:"CALÇADO" },
+  { item:"FÍGADO",     cue:"ÓRGÃO DO CORPO" },
+  { item:"ALFACE",     cue:"VERDURA" },
+  { item:"SATURNO",    cue:"PLANETA" },
+  { item:"PARDAL",     cue:"AVE" },
+  { item:"ESMERALDA",  cue:"PEDRA PRECIOSA" },
+  { item:"ALECRIM",    cue:"TEMPERO" },
+  { item:"CAMINHÃO",   cue:"VEÍCULO" }
+];
+
+/* ============================ UTILITÁRIOS ============================ */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const now = () => performance.now();
+function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function chunk(arr,size){ const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; }
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : null;
+function sd(a){ if(a.length<2) return null; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1)); }
+function escapeHtml(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* Normalização (maiúsculas, sem acentos) + Levenshtein + pareamento tolerante */
+function normalize(s){
+  return (s||"").toString().trim().toUpperCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^\w\s-]/g," ").replace(/\s+/g," ").trim();
+}
+function levenshtein(a,b){
+  const m=a.length,n=b.length;
+  if(!m) return n; if(!n) return m;
+  const d=Array.from({length:m+1},()=>new Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) d[i][0]=i;
+  for(let j=0;j<=n;j++) d[0][j]=j;
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){
+    const c=a[i-1]===b[j-1]?0:1;
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c);
+  }
+  return d[m][n];
+}
+function singular(w){ return w.length>3 && /S$/.test(w) ? w.replace(/S$/,"") : w; }
+function matchesTarget(token, item){
+  const a=normalize(token), b=normalize(item);
+  if(!a) return false;
+  if(a===b) return true;
+  if(singular(a)===singular(b)) return true;
+  const tol = b.length<=4 ? 0 : (b.length<=7 ? 1 : 2);
+  if(tol===0) return false;
+  if(Math.abs(a.length-b.length) > tol) return false;
+  return levenshtein(a,b) <= tol;
+}
+function transcriptHasItem(text, item){
+  return normalize(text).split(" ").filter(Boolean).some(w=>matchesTarget(w,item));
+}
+function parseTranscript(text){
+  const words = normalize(text).split(" ").filter(Boolean);
+  const found=new Set(), matched=new Set();
+  words.forEach(w=>{
+    for(let i=0;i<SESSION.targets.length;i++){ if(matchesTarget(w, SESSION.targets[i].item)){ found.add(i); matched.add(w); break; } }
+  });
+  const intrusions=[...new Set(words.filter(w=> !matched.has(w) && w.length>2 && !STOPWORDS.has(normalize(w))))];
+  return { found:[...found], intrusions };
+}
+const STOPWORDS = new Set(["QUE","UMA","UM","DE","DO","DA","DOS","DAS","OS","AS","NO","NA","E","OU","COM","SIM","NAO","EU","VOCE","ELE","ELA","ACHO","LEMBRO","TINHA","HAVIA","VI","AH","HUM","ENTAO","TIPO","ASSIM","LA","BEM","DEPOIS","ANTES","AGORA","MUITO","TAMBEM","SO","JA","OUTRA","OUTRO","COISA","COISAS","FIGURA","FIGURAS","PALAVRA","PALAVRAS","ERA","FOI","SER","TEM","TER","DEIXA","VER","SEI","NADA","PRONTO","TERMINEI","ACABEI","MESA","CARTA"]);
+const FINISH_RE = /\b(TERMINEI|ACABEI)\b/;
+
+/* ============================ RECONHECIMENTO DE VOZ ============================
+   Mesmo mecanismo usado na BBRC: Web Speech API contínua, resultados
+   intermediários, reinício automático no onend, pt-BR. */
+const Speech = {
+  rec:null, supported:false, active:false, transcript:"", interim:"",
+  onUpdate:null, onError:null, restartTimeout:null, error:null,
+  init(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ this.supported=false; return; }
+    this.supported=true;
+    const rec=new SR();
+    rec.continuous=true; rec.interimResults=true; rec.lang="pt-BR"; rec.maxAlternatives=1;
+    rec.onresult=(ev)=>{
+      let fin="", itr="";
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        const r=ev.results[i];
+        if(r.isFinal) fin+=r[0].transcript+" "; else itr+=r[0].transcript+" ";
+      }
+      if(fin.trim()) this.transcript=(this.transcript+" "+fin).replace(/\s+/g," ").trim();
+      this.interim=itr.trim();
+      if(this.onUpdate) this.onUpdate(this.transcript, this.interim);
+    };
+    rec.onerror=(ev)=>{
+      if(ev.error==="aborted"||ev.error==="no-speech") return;
+      if(ev.error==="not-allowed"||ev.error==="service-not-allowed"){
+        this.error="not-allowed"; this.active=false;
+        if(this.onError) this.onError("not-allowed");
+      }
+    };
+    rec.onend=()=>{
+      this.interim="";
+      if(this.active){
+        clearTimeout(this.restartTimeout);
+        this.restartTimeout=setTimeout(()=>{ if(this.active&&this.rec){ try{ this.rec.start(); }catch(e){} } },250);
+      }
+    };
+    this.rec=rec;
+  },
+  start(){ if(!this.rec||this.active) return; this.error=null; this.active=true; setTimeout(()=>{ if(this.active&&this.rec){ try{ this.rec.start(); }catch(e){} } },300); },
+  stop(){ this.active=false; clearTimeout(this.restartTimeout); if(this.rec){ try{ this.rec.stop(); }catch(e){} } },
+  reset(){ this.transcript=""; this.interim=""; }
+};
+Speech.init();
+let VOICE_MODE = false;
+
+async function ensureMic(){
+  if(!Speech.supported) return "unsupported";
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return "unsupported";
+  try{ const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); return "granted"; }
+  catch(e){ return (e && e.name==="NotFoundError") ? "unsupported" : "denied"; }
+}
+
+let audioCtx=null;
+function beep(freq=700, dur=0.12){
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.frequency.value=freq; o.type="sine";
+    g.gain.setValueAtTime(0.18,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+
+/* Helpers de DOM da caixa de voz */
+function setTranscript(tx, interim){
+  const el=$("transcript"); if(!el) return;
+  if((tx&&tx.length)||(interim&&interim.length)){
+    el.classList.remove("empty");
+    el.innerHTML=escapeHtml(tx)+(interim?' <span class="interim">'+escapeHtml(interim)+'</span>':"");
+  } else {
+    el.classList.add("empty");
+    el.innerHTML='<span class="placeholder">Fale agora…</span>';
+  }
+  el.scrollTop=el.scrollHeight;
+}
+function setMicLabel(t){ const el=$("micLabel"); if(el) el.textContent=t; }
+function markMatch(){ const b=$("voiceBox"); if(b) b.classList.add("matched"); setMicLabel("✓ reconhecido"); }
+function revealTyped(){ const d=document.querySelector(".typed-fallback"); if(d) d.open=true; }
+
+const stage = $("stage");
+function showStage(html){ stage.innerHTML = html; stage.style.display = "flex"; }
+function clearStage(){ stage.innerHTML = ""; }
+
+/* ============================ ESTADO ============================ */
+let CFG, SESSION;
+
+function buildConfig(){
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  return {
+    nItems:      clamp(parseInt($("cfgItems").value)||16,8,16),
+    perCard:     clamp(parseInt($("cfgPerCard").value)||4,2,4),
+    confirmMs:   clamp(parseInt($("cfgConfirmMs").value)||1100,600,2500),
+    restudyMs:   clamp(parseInt($("cfgRestudyMs").value)||4000,2000,8000),
+    interferenceType: $("cfgInterf").value,
+    interferenceDurationMs: clamp(parseInt($("cfgInterfDur").value)||120,30,180)*1000,
+    fixationMs: 800,
+    maxIrRounds: 2
+  };
+}
+
+/* ============================ FASE: instrução ============================ */
+function phaseMessage(kicker, title, body, btnLabel){
+  return new Promise(resolve=>{
+    showStage(
+      '<div class="phase-msg">'+
+        '<div class="kicker">'+kicker+'</div>'+
+        '<h2>'+title+'</h2>'+
+        '<p>'+body+'</p>'+
+        '<div class="btn-row" style="justify-content:center;margin-top:26px">'+
+          '<button class="btn" id="btnPhase" style="max-width:300px">'+btnLabel+'</button>'+
+        '</div>'+
+      '</div>');
+    $("btnPhase").onclick = resolve;
+  });
+}
+
+/* =========================================================================
+   CAPTURA DE UM ITEM (evocação com pista): voz ou digitação
+   Usada pela verificação IR e pela evocação com pista. Retorna
+   { input, correct, rtMs }.
+   ========================================================================= */
+function singleVoiceHTML(cue, progressLabel){
+  return ''+
+  '<div class="recall-box">'+
+    '<div class="cue-prompt">Fale o item da categoria</div>'+
+    '<div class="cue-big">'+cue+'</div>'+
+    '<div class="voice-box" id="voiceBox">'+
+      '<div class="mic-row"><span class="mic-dot"></span><span id="micLabel">Ouvindo…</span></div>'+
+      '<div class="transcript empty" id="transcript"><span class="placeholder">Fale agora…</span></div>'+
+    '</div>'+
+    '<div class="btn-row" style="justify-content:center">'+
+      '<button class="btn" id="vConfirm">Confirmar</button>'+
+      '<button class="btn ghost" id="vSkip">Não lembro</button>'+
+    '</div>'+
+    '<details class="typed-fallback"><summary>ou digite</summary>'+
+      '<div class="recall-row"><input type="text" id="vTyped" placeholder="digite o item" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"><button class="btn secondary" id="vTypedOk">OK</button></div>'+
+    '</details>'+
+    '<div class="recall-count">'+progressLabel+'</div>'+
+  '</div>';
+}
+function captureCuedItemVoice({cue, item, progressLabel}){
+  return new Promise(resolve=>{
+    Speech.reset();
+    const t0=now();
+    let done=false;
+    showStage(singleVoiceHTML(cue, progressLabel));
+    const finish=(input, correct)=>{
+      if(done) return; done=true;
+      Speech.onUpdate=null; Speech.onError=null; Speech.stop();
+      resolve({ input:(input||"").trim(), correct:!!correct, rtMs:+(now()-t0).toFixed(1) });
+    };
+    Speech.onUpdate=(tx,interim)=>{
+      setTranscript(tx, interim);
+      if(transcriptHasItem(tx, item)){ markMatch(); setTimeout(()=>finish(tx, true), 600); }
+    };
+    Speech.onError=()=>{ setMicLabel("Microfone indisponível — digite abaixo"); revealTyped(); };
+    beep(); Speech.start();
+    $("vConfirm").onclick=()=>{ const tx=Speech.transcript; finish(tx, transcriptHasItem(tx, item)); };
+    $("vSkip").onclick=()=> finish("", false);
+    const typedSubmit=()=>{ const v=$("vTyped").value; finish(v, transcriptHasItem(v, item)); };
+    $("vTypedOk").onclick=typedSubmit;
+    $("vTyped").onkeydown=e=>{ if(e.key==="Enter") typedSubmit(); };
+  });
+}
+function captureCuedItemTyped({cue, item, progressLabel}){
+  return new Promise(resolve=>{
+    const t0=now();
+    showStage(
+      '<div class="recall-box">'+
+        '<div class="cue-prompt">Qual era o item da categoria?</div>'+
+        '<div class="cue-big">'+cue+'</div>'+
+        '<div class="recall-row"><input type="text" id="ctInput" placeholder="digite o item" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"><button class="btn" id="ctOk">Confirmar</button></div>'+
+        '<div class="recall-count">'+progressLabel+'</div>'+
+      '</div>');
+    const inp=$("ctInput"); inp.focus();
+    const submit=()=>{ const v=inp.value; resolve({ input:v.trim(), correct:transcriptHasItem(v, item), rtMs:+(now()-t0).toFixed(1) }); };
+    $("ctOk").onclick=submit;
+    inp.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+  });
+}
+function captureCuedItem(opts){ return VOICE_MODE ? captureCuedItemVoice(opts) : captureCuedItemTyped(opts); }
+
+/* =========================================================================
+   FASE A — CODIFICAÇÃO CONTROLADA
+   (1) identificação por toque (análogo do "apontar", + confirmação item<->categoria);
+   (2) verificação de Recordação Imediata (IR) por evocação com pista (voz/digitação).
+   ========================================================================= */
+function identifyCard(cardItems){
+  return new Promise(resolve=>{
+    const cueOrder = shuffle(cardItems);
+    const attempts=[];
+    let ci=0;
+    function ask(){
+      if(ci>=cueOrder.length){ resolve(attempts); return; }
+      const target=cueOrder[ci];
+      const tilesOrder=shuffle(cardItems);
+      showStage(
+        '<div style="width:100%">'+
+          '<div class="cue-prompt">Toque no item que pertence à categoria</div>'+
+          '<div class="cue-big">'+target.cue+'</div>'+
+          '<div class="tiles" id="tiles">'+
+            tilesOrder.map((it,k)=>'<button class="tile" data-k="'+k+'">'+it.item+'</button>').join("")+
+          '</div>'+
+          '<div class="progress">'+(ci+1)+' / '+cueOrder.length+'</div>'+
+        '</div>');
+      const t0=now(); let localErr=0;
+      const btns=$("tiles").querySelectorAll("button");
+      btns.forEach(btn=>{
+        btn.onclick=()=>{
+          const picked=tilesOrder[+btn.dataset.k];
+          if(picked.item===target.item){
+            attempts.push({ item:target.item, cue:target.cue, errors:localErr, rtMs:+(now()-t0).toFixed(1) });
+            btn.classList.add("flash-ok");
+            btns.forEach(b=>b.style.pointerEvents="none");
+            showStage('<div class="stim-word">'+target.item+'</div><div class="cue-label">'+target.cue+'</div>');
+            setTimeout(()=>{ ci++; ask(); }, CFG.confirmMs);
+          } else {
+            localErr++; btn.classList.add("flash-err"); btn.style.pointerEvents="none";
+            if(localErr>=2){
+              btns.forEach(b=>{ const it=tilesOrder[+b.dataset.k]; if(it.item===target.item){ b.classList.remove("flash-err"); b.classList.add("reveal"); b.style.pointerEvents="auto"; } });
+            }
+          }
+        };
+      });
+    }
+    ask();
+  });
+}
+async function irTest(items){
+  const order=shuffle(items);
+  const res=[];
+  for(const target of order){
+    const r=await captureCuedItem({ cue:target.cue, item:target.item, progressLabel:"Verificação de codificação · "+(res.length+1)+" / "+order.length });
+    res.push({ item:target.item, cue:target.cue, input:r.input, correct:r.correct, rtMs:r.rtMs });
+  }
+  return res;
+}
+async function restudy(items){
+  for(const it of items){
+    showStage('<div class="stim-word">'+it.item+'</div><div class="cue-label">'+it.cue+'</div>');
+    await sleep(CFG.restudyMs);
+    clearStage(); stage.style.display="flex"; showStage(""); await sleep(300);
+  }
+}
+async function runEncoding(){
+  const cards=SESSION.cards;
+  await phaseMessage(
+    "Codificação","Vamos memorizar os itens",
+    "Em cada tela aparecerão alguns itens. Vou pedir, um de cada vez, que você toque no item de uma categoria (ex.: <b>a fruta</b>). Depois, com os itens ocultos, vou perguntar qual era o item de cada categoria"+(VOICE_MODE?" — e você <b>responde falando</b>.":"."),
+    "Começar"
+  );
+  for(let c=0;c<cards.length;c++){
+    const card=cards[c];
+    await phaseMessage("Codificação · cartão "+(c+1)+" de "+cards.length, "Cartão "+(c+1), "Identifique cada item pela sua categoria.", "Ver itens");
+    const idAttempts=await identifyCard(card);
+    idAttempts.forEach(a=>{ const rec=SESSION.encoding[a.item]; rec.idErrors=a.errors; rec.idRtMs=a.rtMs; });
+
+    showStage('<div class="fixation">+</div>'); await sleep(CFG.fixationMs);
+
+    let ir1=await irTest(card);
+    ir1.forEach(r=>{ const rec=SESSION.encoding[r.item]; rec.ir1=r.correct; rec.irInput1=r.input; rec.irRt1Ms=r.rtMs; rec.encoded=r.correct; });
+
+    let failed=card.filter(it=>!SESSION.encoding[it.item].ir1);
+    let round=1;
+    while(failed.length && round<CFG.maxIrRounds){
+      await phaseMessage("Codificação · revisão","Vamos rever alguns itens","Preste atenção nos itens a seguir.","Rever");
+      await restudy(failed);
+      showStage('<div class="fixation">+</div>'); await sleep(CFG.fixationMs);
+      const irN=await irTest(failed);
+      irN.forEach(r=>{ const rec=SESSION.encoding[r.item]; rec.irRounds=(rec.irRounds||1)+1; rec.encoded=r.correct; rec.irInputLast=r.input; });
+      failed=failed.filter(it=>!SESSION.encoding[it.item].encoded);
+      round++;
+    }
+  }
+  await phaseMessage("Codificação concluída","Muito bem","Agora, um exercício rápido antes da próxima etapa.","Continuar");
+}
+
+/* =========================================================================
+   FASE B — INTERVALO PREENCHIDO (2 min)
+   ========================================================================= */
+function makeMaiorNumeroTrial(){
+  const base=randInt(120,880); const set=new Set();
+  while(set.size<4){ set.add(base+randInt(-90,90)); }
+  const nums=shuffle([...set]); const max=Math.max(...nums);
+  return { prompt:"Toque no MAIOR número", options:nums.map(n=>({label:String(n), correct:n===max})) };
+}
+function makeCalculoTrial(){
+  const ops=["+","−","×"]; const op=ops[randInt(0,2)];
+  let a,b,res;
+  if(op==="+"){ a=randInt(11,79); b=randInt(11,79); res=a+b; }
+  else if(op==="−"){ a=randInt(30,99); b=randInt(5,a-1); res=a-b; }
+  else { a=randInt(3,12); b=randInt(3,12); res=a*b; }
+  const s=new Set([res]);
+  while(s.size<4){ const d=res+(randInt(0,1)?1:-1)*randInt(1, op==="×"?9:7); if(d>0) s.add(d); }
+  return { prompt:"Quanto é "+a+" "+op+" "+b+" ?", options:shuffle([...s]).map(v=>({label:String(v), correct:v===res})) };
+}
+function runInterference(){
+  return new Promise(async resolve=>{
+    const secs=CFG.interferenceDurationMs/1000|0;
+    await phaseMessage("Intervalo","Um exercício rápido",
+      CFG.interferenceType==="maiorNumero"
+        ? "Toque sempre no <b>maior</b> dos quatro números. Responda rápido, sem errar. Dura cerca de "+secs+" segundos."
+        : "Resolva as contas tocando na resposta correta. Responda rápido. Dura cerca de "+secs+" segundos.",
+      "Começar");
+    const results=[]; const endAt=now()+CFG.interferenceDurationMs; let active=true;
+    function renderTrial(){
+      if(now()>=endAt){ finish(); return; }
+      const trial=CFG.interferenceType==="maiorNumero"?makeMaiorNumeroTrial():makeCalculoTrial();
+      const opts=shuffle(trial.options); const t0=now();
+      showStage(
+        '<div style="width:100%">'+
+          '<div class="cue-prompt" style="text-align:center;font-size:1.35rem;color:var(--ink);font-weight:600;margin-bottom:24px">'+trial.prompt+'</div>'+
+          '<div class="tiles" id="iOpts">'+opts.map((o,k)=>'<button class="tile num-opt" data-k="'+k+'">'+o.label+'</button>').join("")+'</div>'+
+          '<div class="timer-bar" id="ibar"></div>'+
+        '</div>');
+      const pct=Math.max(0,Math.min(100,((CFG.interferenceDurationMs-(endAt-now()))/CFG.interferenceDurationMs)*100));
+      const bar=$("ibar"); if(bar) requestAnimationFrame(()=>{ bar.style.width=pct+"%"; });
+      $("iOpts").querySelectorAll("button").forEach(btn=>{
+        btn.onclick=()=>{
+          const k=+btn.dataset.k; const correct=opts[k].correct;
+          results.push({ prompt:trial.prompt, correct, reactionTimeMs:+(now()-t0).toFixed(1) });
+          btn.classList.add(correct?"flash-ok":"flash-err");
+          $("iOpts").querySelectorAll("button").forEach(b=>b.style.pointerEvents="none");
+          setTimeout(()=>{ if(active) renderTrial(); },170);
+        };
+      });
+    }
+    function finish(){
+      active=false;
+      const rts=results.filter(r=>r.correct).map(r=>r.reactionTimeMs);
+      SESSION.interference={
+        type:CFG.interferenceType, durationMs:CFG.interferenceDurationMs,
+        nTrials:results.length, nCorrect:results.filter(r=>r.correct).length,
+        accuracy: results.length ? +(results.filter(r=>r.correct).length/results.length).toFixed(3) : null,
+        meanRTms: rts.length ? +mean(rts).toFixed(1) : null, trials:results
+      };
+      resolve();
+    }
+    renderTrial();
+  });
+}
+
+/* =========================================================================
+   FASE C — EVOCAÇÃO LIVRE (voz ou digitação)
+   ========================================================================= */
+function runFreeRecall(){
+  return new Promise(async resolve=>{
+    await phaseMessage("Evocação livre","Quais itens você viu?",
+      VOICE_MODE
+        ? "Fale todas as palavras que você lembra, uma de cada vez. Não há ordem certa. Quando não lembrar de mais nenhuma, diga <b>“terminei”</b> ou toque em Terminei."
+        : "Digite todas as palavras que você lembra, uma de cada vez (Enter para adicionar). Quando não lembrar de mais nenhuma, toque em Terminei.",
+      "Começar");
+    if(VOICE_MODE) freeRecallVoice(resolve); else freeRecallTyped(resolve);
+  });
+}
+function freeRecallVoice(resolve){
+  const targets=SESSION.targets;
+  Speech.reset();
+  const t0=now(); let order=0; let done=false;
+  showStage(
+    '<div class="recall-box">'+
+      '<div class="cue-prompt" style="margin-bottom:12px">Fale todas as palavras que você lembra</div>'+
+      '<div class="voice-box" id="voiceBox">'+
+        '<div class="mic-row"><span class="mic-dot"></span><span id="micLabel">Ouvindo…</span></div>'+
+        '<div class="transcript empty" id="transcript"><span class="placeholder">Fale agora…</span></div>'+
+      '</div>'+
+      '<div class="recall-count" id="frCount">0 palavras</div>'+
+      '<div class="btn-row" style="justify-content:center"><button class="btn" id="frDone" style="max-width:300px">Terminei</button></div>'+
+      '<details class="typed-fallback"><summary>ou digite uma palavra</summary>'+
+        '<div class="recall-row"><input type="text" id="frTyped" placeholder="uma palavra" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"><button class="btn secondary" id="frAdd">Adicionar</button></div>'+
+      '</details>'+
+    '</div>');
+  function recordFound(tx){
+    parseTranscript(tx).found.forEach(idx=>{ if(!SESSION.recall.free[idx]) SESSION.recall.free[idx]={ tMs:+(now()-t0).toFixed(1), order:order++ }; });
+  }
+  function updateCount(){
+    const el=$("frCount"); if(!el) return;
+    const n=normalize(Speech.transcript).split(" ").filter(w=>w && !STOPWORDS.has(w)).length;
+    el.textContent=n+" "+(n===1?"palavra":"palavras");
+  }
+  const finish=()=>{
+    if(done) return; done=true;
+    Speech.onUpdate=null; Speech.onError=null; Speech.stop();
+    const tx=Speech.transcript;
+    recordFound(tx);
+    const parsed=parseTranscript(tx);
+    SESSION.recall.freeTranscript=tx;
+    SESSION.recall.freeEntries=parsed.intrusions.map(w=>({word:w, kind:"intrusion"}));
+    SESSION.recall.freeIntrusions=parsed.intrusions;
+    SESSION.recall.freeMissing=targets.map((_,i)=>i).filter(i=>!SESSION.recall.free[i]);
+    SESSION.recall.freeDurationMs=+(now()-t0).toFixed(1);
+    resolve();
+  };
+  Speech.onUpdate=(tx,interim)=>{
+    setTranscript(tx, interim);
+    recordFound(tx);
+    updateCount();
+    if(FINISH_RE.test(normalize(tx))) finish();
+  };
+  Speech.onError=()=>{ setMicLabel("Microfone indisponível — use o campo de texto"); revealTyped(); };
+  beep(); Speech.start();
+  $("frDone").onclick=finish;
+  const addTyped=()=>{ const v=$("frTyped").value; $("frTyped").value=""; if(!normalize(v)) return; Speech.transcript=(Speech.transcript+" "+v).replace(/\s+/g," ").trim(); if(Speech.onUpdate) Speech.onUpdate(Speech.transcript,""); };
+  $("frAdd").onclick=addTyped;
+  $("frTyped").onkeydown=e=>{ if(e.key==="Enter") addTyped(); };
+}
+function freeRecallTyped(resolve){
+  const targets=SESSION.targets;
+  let remaining=targets.map((_,i)=>i);
+  const t0=now(); let order=0; const entries=[];
+  showStage(
+    '<div class="recall-box">'+
+      '<div class="cue-prompt" style="margin-bottom:16px">Digite cada palavra e tecle Enter</div>'+
+      '<div class="recall-row"><input type="text" id="frInput" placeholder="uma palavra" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"><button class="btn secondary" id="frAdd">Adicionar</button></div>'+
+      '<div class="chips" id="frChips"></div>'+
+      '<div class="recall-count" id="frCount">0 palavras</div>'+
+      '<div class="btn-row" style="justify-content:center"><button class="btn" id="frDone" style="max-width:300px">Terminei</button></div>'+
+    '</div>');
+  const inp=$("frInput"); inp.focus();
+  const chips=$("frChips"); const count=$("frCount");
+  function add(){
+    const raw=inp.value; const nm=normalize(raw); inp.value=""; inp.focus();
+    if(!nm) return;
+    let hitIdx=-1; for(const i of remaining){ if(matchesTarget(nm, targets[i].item)){ hitIdx=i; break; } }
+    let kind;
+    if(hitIdx!==-1){ kind="hit"; remaining=remaining.filter(i=>i!==hitIdx); SESSION.recall.free[hitIdx]={ tMs:+(now()-t0).toFixed(1), order:order++ }; }
+    else { let any=-1; for(let i=0;i<targets.length;i++){ if(matchesTarget(nm, targets[i].item)){ any=i; break; } } kind = any!==-1 ? "repeat":"intrusion"; }
+    entries.push({ word:nm, kind });
+    const chip=document.createElement("span"); chip.className="chip"; chip.textContent=nm; chips.appendChild(chip);
+    count.textContent=entries.length+" "+(entries.length===1?"palavra":"palavras");
+  }
+  $("frAdd").onclick=add; inp.onkeydown=e=>{ if(e.key==="Enter") add(); };
+  $("frDone").onclick=()=>{
+    SESSION.recall.freeEntries=entries;
+    SESSION.recall.freeIntrusions=entries.filter(e=>e.kind==="intrusion").map(e=>e.word);
+    SESSION.recall.freeMissing=remaining.slice();
+    SESSION.recall.freeDurationMs=+(now()-t0).toFixed(1);
+    SESSION.recall.freeTranscript=null;
+    resolve();
+  };
+}
+
+/* =========================================================================
+   FASE D — EVOCAÇÃO SELETIVA COM PISTA (voz ou digitação)
+   ========================================================================= */
+async function runCuedRecall(){
+  const targets=SESSION.targets; const missing=SESSION.recall.freeMissing;
+  if(missing.length===0){ SESSION.recall.cuedEntries=[]; return; }
+  await phaseMessage("Evocação com pista","Vamos usar uma dica",
+    "Agora vou dar a <b>categoria</b> de cada item que faltou. "+(VOICE_MODE?"<b>Fale</b>":"Digite")+" qual era o item daquela categoria.",
+    "Começar");
+  const order=shuffle(missing); const entries=[];
+  for(const idx of order){
+    const target=targets[idx];
+    const r=await captureCuedItem({ cue:target.cue, item:target.item, progressLabel:"Com pista · "+(entries.length+1)+" / "+order.length });
+    entries.push({ targetIndex:idx, item:target.item, cue:target.cue, input:r.input, correct:r.correct, rtMs:r.rtMs });
+    if(r.correct) SESSION.recall.cued[idx]={ rtMs:r.rtMs };
+  }
+  SESSION.recall.cuedEntries=entries;
+}
+
+/* ============================ RESULTADOS ============================ */
+function computeSummary(){
+  const n=SESSION.targets.length;
+  const free=SESSION.recall.free, cued=SESSION.recall.cued;
+  const FR=Object.keys(free).length, CR=Object.keys(cued).length, TR=FR+CR;
+  const denom=n-FR;
+  const ISC = denom>0 ? +((TR-FR)/denom).toFixed(3) : null;
+  const freeIntrusions=(SESSION.recall.freeIntrusions||[]).length;
+  const freeRepeats=(SESSION.recall.freeEntries||[]).filter(e=>e.kind==="repeat").length;
+  const cuedIntrusions=(SESSION.recall.cuedEntries||[]).filter(e=>!e.correct).length;
+  const encodedIR=Object.values(SESSION.encoding).filter(r=>r.encoded).length;
+  const irRounds=Object.values(SESSION.encoding).reduce((s,r)=>s+(r.irRounds||1),0);
+  return { nItems:n, FR, CR, TR, ISC, freeIntrusions, freeRepeats, cuedIntrusions, encodedIR, irRoundsTotal:irRounds, freeDurationMs:SESSION.recall.freeDurationMs||null };
+}
+function statusOf(idx){
+  if(SESSION.recall.free[idx]) return "free";
+  if(SESSION.recall.cued[idx]) return "cued";
+  return "none";
+}
+function renderResults(){
+  const s=SESSION.summary=computeSummary();
+  const n=s.nItems;
+  const rows=SESSION.targets.map((t,idx)=>{
+    const st=statusOf(idx);
+    const label=st==="free"?"Livre":(st==="cued"?"Com pista":"Não evocado");
+    const rt=st==="free"?Math.round(SESSION.recall.free[idx].tMs):(st==="cued"?Math.round(SESSION.recall.cued[idx].rtMs):"—");
+    return '<tr><td>'+t.item+'</td><td>'+t.cue+'</td><td><span class="tag '+st+'">'+label+'</span></td><td class="num">'+rt+'</td></tr>';
+  }).join("");
+  const iscTxt=s.ISC!=null?s.ISC.toFixed(2):"—";
+  const interf=SESSION.interference;
+
+  $("screen-results").innerHTML=
+    '<h1>Resultados</h1>'+
+    '<p class="lead">Participante <strong>'+(SESSION.patientId||"—")+'</strong> · '+new Date(SESSION.sessionStartISO).toLocaleString("pt-BR")+' · evocação por <strong>'+SESSION.recallMode+'</strong></p>'+
+
+    '<h2>Evocação (após intervalo de '+(CFG.interferenceDurationMs/1000|0)+' s)</h2>'+
+    '<div class="stat-grid">'+
+      '<div class="stat"><div class="v">'+s.FR+'/'+n+'</div><div class="k">Evocação livre (FR)</div></div>'+
+      '<div class="stat"><div class="v">'+s.CR+'</div><div class="k">Ganho com pista (CR)</div></div>'+
+      '<div class="stat"><div class="v">'+s.TR+'/'+n+'</div><div class="k">Recordação total (TR)</div></div>'+
+      '<div class="stat"><div class="v">'+iscTxt+'</div><div class="k">Índice sens. à pista (ISC)</div></div>'+
+    '</div>'+
+
+    '<h2>Intrusões e codificação</h2>'+
+    '<div class="stat-grid">'+
+      '<div class="stat"><div class="v" style="color:var(--err)">'+s.freeIntrusions+'</div><div class="k">Intrusões (livre)</div></div>'+
+      '<div class="stat"><div class="v" style="color:var(--err)">'+s.cuedIntrusions+'</div><div class="k">Intrusões (com pista)</div></div>'+
+      '<div class="stat"><div class="v">'+s.encodedIR+'/'+n+'</div><div class="k">Codificados na verificação IR</div></div>'+
+      '<div class="stat"><div class="v">'+(interf?interf.nCorrect+"/"+interf.nTrials:"—")+'</div><div class="k">Interferência (acertos)</div></div>'+
+    '</div>'+
+
+    '<div class="note"><strong>Leitura (não diagnóstica).</strong> Como a codificação foi controlada e verificada, a pista isola armazenamento × recuperação. TR preservado com ganho expressivo pela pista sugere perfil de <em>recuperação</em> (frontossubcortical); TR baixo apesar da pista, com ISC baixo e intrusões, sugere perfil de <em>armazenamento/consolidação</em> (amnéstico tipo hipocampal). Aplicar dados normativos locais — não substitui avaliação clínica.</div>'+
+
+    '<details style="margin-top:8px"><summary>Detalhamento por item</summary>'+
+      '<table><thead><tr><th>Item</th><th>Categoria</th><th>Evocação</th><th class="num">TR (ms)</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></details>'+
+
+    ((SESSION.recall.freeTranscript)?('<details style="margin-top:8px"><summary>Transcrição da evocação livre</summary><p class="muted" style="margin-top:10px">'+escapeHtml(SESSION.recall.freeTranscript)+'</p></details>'):'')+
+
+    '<div class="btn-row">'+
+      '<button class="btn" id="btnJson" style="flex:1">Exportar JSON</button>'+
+      '<button class="btn secondary" id="btnCsv" style="flex:1">Exportar CSV</button>'+
+    '</div>'+
+    '<div class="btn-row"><button class="btn ghost" id="btnRestart">Novo participante</button></div>'+
+    '<p class="muted" style="margin-top:14px">O JSON traz a sessão completa (codificação, IR, timing, interferência, transcrições/entradas de evocação). O CSV traz uma linha por item, em formato longo pronto para o R.</p>';
+
+  $("screen-results").style.display="block";
+  $("btnJson").onclick=exportJSON;
+  $("btnCsv").onclick=exportCSV;
+  $("btnRestart").onclick=()=>location.reload();
+}
+
+/* ============================ EXPORTAÇÃO ============================ */
+function download(filename, content, mime){
+  const blob=new Blob([content],{type:mime}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function stamp(){
+  const pid=(SESSION.patientId||"anon").replace(/[^\w\-]/g,"_");
+  const d=new Date(); const p=n=>String(n).padStart(2,"0");
+  return pid+"_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes());
+}
+function exportJSON(){ download("fcsrt_"+stamp()+".json", JSON.stringify(SESSION,null,2), "application/json"); }
+function exportCSV(){
+  const s=SESSION.summary||computeSummary();
+  const cols=["patientId","recallMode","itemIndex","item","category","cardIndex","encodedIR","irRounds",
+    "freeRecalled","freeRT_ms","cuedRecalled","cuedRT_ms","finalStatus",
+    "FR_total","CR_total","TR_total","ISC","freeIntrusions","cuedIntrusions",
+    "interfType","interfAccuracy","interfMeanRT_ms"];
+  const esc=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+  const lines=[cols.join(",")];
+  SESSION.targets.forEach((t,idx)=>{
+    const enc=SESSION.encoding[t.item]||{};
+    const st=statusOf(idx);
+    const freeRT=SESSION.recall.free[idx]?Math.round(SESSION.recall.free[idx].tMs):"";
+    const cuedRT=SESSION.recall.cued[idx]?Math.round(SESSION.recall.cued[idx].rtMs):"";
+    lines.push([
+      SESSION.patientId, SESSION.recallMode, idx, t.item, t.cue, t.cardIndex,
+      enc.encoded?1:0, enc.irRounds||1,
+      st==="free"?1:0, freeRT,
+      st==="cued"?1:0, cuedRT,
+      st,
+      s.FR, s.CR, s.TR, s.ISC, s.freeIntrusions, s.cuedIntrusions,
+      SESSION.interference?SESSION.interference.type:"",
+      SESSION.interference?SESSION.interference.accuracy:"",
+      SESSION.interference?SESSION.interference.meanRTms:""
+    ].map(esc).join(","));
+  });
+  download("fcsrt_"+stamp()+".csv", "\uFEFF"+lines.join("\r\n"), "text/csv;charset=utf-8");
+}
+
+/* ============================ ORQUESTRAÇÃO ============================ */
+async function startSession(){
+  CFG=buildConfig();
+  const pool=shuffle(FCSRT_ITEMS).slice(0,CFG.nItems);
+  const cards=chunk(pool,CFG.perCard);
+  const encoding={};
+  pool.forEach(it=>{ encoding[it.item]={ encoded:false, irRounds:1 }; });
+  cards.forEach((card,ci)=>card.forEach(it=>{ it.cardIndex=ci; }));
+
+  SESSION={
+    patientId:$("patientId").value.trim(),
+    paradigm:"FCSRT-IR adaptado (evocação por voz; evocação única após intervalo; sem evocação tardia 20-30 min)",
+    recallMode: VOICE_MODE ? "voz" : "digitação",
+    sessionStartISO:new Date().toISOString(),
+    config:CFG,
+    userAgent:navigator.userAgent,
+    inputMode: matchMedia("(pointer:fine)").matches ? "mouse" : "touch",
+    speechSupported: Speech.supported,
+    targets: pool.map(it=>({ item:it.item, cue:it.cue, cardIndex:it.cardIndex })),
+    cards, encoding,
+    interference:null,
+    recall:{ free:{}, cued:{}, freeEntries:[], cuedEntries:[], freeMissing:[], freeDurationMs:null, freeTranscript:null, freeIntrusions:[] },
+    summary:null
+  };
+
+  $("screen-start").style.display="none";
+  stage.style.display="flex";
+
+  await runEncoding();       // A: codificação controlada + IR
+  await runInterference();   // B: intervalo preenchido de 2 min
+  await runFreeRecall();     // C: evocação livre
+  await runCuedRecall();     // D: evocação seletiva com pista
+
+  Speech.stop();
+  stage.style.display="none";
+  renderResults();
+}
+
+async function beginFlow(){
+  if(!$("patientId").value.trim()){ if(!confirm("Nenhuma identificação informada. Deseja continuar mesmo assim?")) return; }
+  const status = Speech.supported ? await ensureMic() : "unsupported";
+  if(status==="granted"){ VOICE_MODE=true; startSession(); return; }
+  VOICE_MODE=false;
+  const gate=$("micGate"); gate.style.display="block";
+  gate.innerHTML = (status==="unsupported")
+    ? '<p>Este navegador não tem reconhecimento de voz. O teste usará <strong>digitação</strong> na evocação. Para responder por voz, abra em <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong>.</p><button class="btn" id="gateContinue">Continuar (modo digitado)</button>'
+    : '<p>Não foi possível acessar o microfone. Permita o microfone (ícone de cadeado na barra de endereço) e tente novamente, ou continue no modo digitado.</p><div class="btn-row"><button class="btn" id="gateRetry">Tentar microfone novamente</button><button class="btn secondary" id="gateContinue">Continuar digitando</button></div>';
+  const c=$("gateContinue"); if(c) c.onclick=()=>{ VOICE_MODE=false; startSession(); };
+  const r=$("gateRetry"); if(r) r.onclick=beginFlow;
+}
+$("btnStart").onclick=beginFlow;
+
+/* Evita scroll/zoom acidental em tablets durante a aplicação */
+document.addEventListener("gesturestart", e=>e.preventDefault());
+</script>
+</body>
+</html>
