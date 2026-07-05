@@ -259,12 +259,34 @@ function levenshtein(a,b){
   }
   return d[m][n];
 }
-function singular(w){ return w.length>3 && /S$/.test(w) ? w.replace(/S$/,"") : w; }
+/* Reduz um plural do português a uma forma singular aproximada.
+   Entrada já normalizada (maiúsculas, sem acentos). Cobre os plurais
+   regulares (-s) e os irregulares que ocorrem no banco de estímulos e em
+   respostas espontâneas: -ão→-ões/-ães/-ãos, -l→-is, -m→-ns, -r/-z/-s→-es. */
+function stemPt(w){
+  if(w.length<=3) return w;
+  if(/OES$/.test(w)) return w.slice(0,-3)+"AO";   // caminhões→caminhão
+  if(/AES$/.test(w)) return w.slice(0,-3)+"AO";   // pães→pão
+  if(/AOS$/.test(w)) return w.slice(0,-3)+"AO";   // irmãos→irmão
+  if(/AIS$/.test(w)) return w.slice(0,-3)+"AL";   // pardais→pardal
+  if(/EIS$/.test(w)) return w.slice(0,-3)+"EL";   // painéis→painel
+  if(/OIS$/.test(w)) return w.slice(0,-3)+"OL";   // girassóis→girassol
+  if(/UIS$/.test(w)) return w.slice(0,-3)+"UL";
+  if(/ENS$/.test(w)) return w.slice(0,-2)+"M";    // homens→homem
+  if(/INS$/.test(w)) return w.slice(0,-2)+"M";    // alecrins→alecrim
+  if(/ONS$/.test(w)) return w.slice(0,-2)+"M";    // sons→som
+  if(/UNS$/.test(w)) return w.slice(0,-2)+"M";    // alguns→algum
+  if(/RES$/.test(w)) return w.slice(0,-2);        // flores→flor
+  if(/ZES$/.test(w)) return w.slice(0,-2);        // luzes→luz
+  if(/SES$/.test(w)) return w.slice(0,-2);        // meses→mês
+  if(/S$/.test(w))   return w.slice(0,-1);        // plural regular
+  return w;
+}
 function matchesTarget(token, item){
   const a=normalize(token), b=normalize(item);
   if(!a) return false;
   if(a===b) return true;
-  if(singular(a)===singular(b)) return true;
+  if(stemPt(a)===stemPt(b)) return true;
   const tol = b.length<=4 ? 0 : (b.length<=7 ? 1 : 2);
   if(tol===0) return false;
   if(Math.abs(a.length-b.length) > tol) return false;
@@ -341,6 +363,7 @@ let audioCtx=null;
 function beep(freq=700, dur=0.12){
   try{
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==="suspended"){ audioCtx.resume(); }
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
     o.frequency.value=freq; o.type="sine";
     g.gain.setValueAtTime(0.18,audioCtx.currentTime);
@@ -823,8 +846,9 @@ function renderResults(){
 /* ============================ EXPORTAÇÃO ============================ */
 function download(filename, content, mime){
   const blob=new Blob([content],{type:mime}); const url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const a=document.createElement("a"); a.href=url; a.download=filename; a.rel="noopener";
+  a.style.display="none"; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ if(a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(url); },1500);
 }
 function stamp(){
   const pid=(SESSION.patientId||"anon").replace(/[^\w\-]/g,"_");
